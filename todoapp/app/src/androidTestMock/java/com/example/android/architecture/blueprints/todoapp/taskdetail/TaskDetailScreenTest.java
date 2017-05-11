@@ -20,8 +20,9 @@ import android.app.Activity;
 import android.content.Intent;
 import android.support.test.rule.ActivityTestRule;
 import android.support.test.runner.AndroidJUnit4;
-import android.support.test.filters.LargeTest;
+import android.test.suitebuilder.annotation.LargeTest;
 
+import com.example.android.architecture.blueprints.todoapp.MainActivity;
 import com.example.android.architecture.blueprints.todoapp.R;
 import com.example.android.architecture.blueprints.todoapp.TestUtils;
 import com.example.android.architecture.blueprints.todoapp.data.FakeTasksRemoteDataSource;
@@ -33,6 +34,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import static android.support.test.espresso.Espresso.onView;
+import static android.support.test.espresso.action.ViewActions.click;
 import static android.support.test.espresso.assertion.ViewAssertions.matches;
 import static android.support.test.espresso.matcher.ViewMatchers.isChecked;
 import static android.support.test.espresso.matcher.ViewMatchers.isDisplayed;
@@ -74,36 +76,35 @@ public class TaskDetailScreenTest {
      * Activity under test, so you can control the Intent that is used to start the target Activity.
      */
     @Rule
-    public ActivityTestRule<TaskDetailActivity> mTaskDetailActivityTestRule =
-            new ActivityTestRule<>(TaskDetailActivity.class, true /* Initial touch mode  */,
-                    false /* Lazily launch activity */);
+    public ActivityTestRule<MainActivity> mMainActivityTestRule =
+            new ActivityTestRule<>(MainActivity.class, true /* Initial touch mode  */,
+                                          false /* Lazily launch activity */);
 
     private void loadActiveTask() {
-        startActivityWithWithStubbedTask(ACTIVE_TASK);
+        startWithStubbedTask(ACTIVE_TASK);
     }
 
     private void loadCompletedTask() {
-        startActivityWithWithStubbedTask(COMPLETED_TASK);
+        startWithStubbedTask(COMPLETED_TASK);
+        // click the task to navigate to it
+        onView(withText(COMPLETED_TASK.getTitle())).perform(click());
     }
 
     /**
-     * Setup your test fixture with a fake task id. The {@link TaskDetailActivity} is started with
-     * a particular task id, which is then loaded from the service API.
-     *
-     * <p>
-     * Note that this test runs hermetically and is fully isolated using a fake implementation of
-     * the service API. This is a great way to make your tests more reliable and faster at the same
-     * time, since they are isolated from any outside dependencies.
+     * Setup your test fixture with a fake task already initialised.
+     * The {@link MainActivity} is started after the fake service API has been configured.
      */
-    private void startActivityWithWithStubbedTask(Task task) {
+    private void startWithStubbedTask(Task task) {
         // Add a task stub to the fake service api layer.
         TasksRepository.destroyInstance();
+        FakeTasksRemoteDataSource.getInstance().deleteAllTasks();
         FakeTasksRemoteDataSource.getInstance().addTasks(task);
 
-        // Lazily start the Activity from the ActivityTestRule this time to inject the start Intent
-        Intent startIntent = new Intent();
-        startIntent.putExtra(TaskDetailActivity.EXTRA_TASK_ID, task.getId());
-        mTaskDetailActivityTestRule.launchActivity(startIntent);
+        // Lazily start the Activity from the ActivityTestRule
+        mMainActivityTestRule.launchActivity(new Intent());
+
+        // click the task in the Tasks screen to navigate to it
+        onView(withText(task.getTitle())).perform(click());
     }
 
     @Test
@@ -133,7 +134,7 @@ public class TaskDetailScreenTest {
         // Check delete menu item is displayed and is unique
         onView(withId(R.id.menu_delete)).check(matches(isDisplayed()));
 
-        TestUtils.rotateOrientation(mTaskDetailActivityTestRule.getActivity());
+        TestUtils.rotateOrientation(mMainActivityTestRule);
 
         // Check that the task is shown
         onView(withId(R.id.task_detail_title)).check(matches(withText(TASK_TITLE)));
@@ -142,5 +143,4 @@ public class TaskDetailScreenTest {
         // Check delete menu item is displayed and is unique
         onView(withId(R.id.menu_delete)).check(matches(isDisplayed()));
     }
-
 }

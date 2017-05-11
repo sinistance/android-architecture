@@ -16,16 +16,19 @@
 
 package com.example.android.architecture.blueprints.todoapp.tasks;
 
-import android.content.Intent;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
-import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
 import android.support.v4.widget.SwipeRefreshLayout;
+import android.support.v7.app.ActionBar;
 import android.support.v7.widget.PopupMenu;
+import android.support.v7.widget.Toolbar;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -39,22 +42,31 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
+import com.bluelinelabs.conductor.RouterTransaction;
+import com.bluelinelabs.conductor.changehandler.HorizontalChangeHandler;
+import com.example.android.architecture.blueprints.todoapp.BaseController;
+import com.example.android.architecture.blueprints.todoapp.Injection;
 import com.example.android.architecture.blueprints.todoapp.R;
-import com.example.android.architecture.blueprints.todoapp.addedittask.AddEditTaskActivity;
+import com.example.android.architecture.blueprints.todoapp.addedittask.AddEditTaskController;
+import com.example.android.architecture.blueprints.todoapp.controller.ControllerResult;
+import com.example.android.architecture.blueprints.todoapp.controller.ControllerResultHandler;
 import com.example.android.architecture.blueprints.todoapp.data.Task;
-import com.example.android.architecture.blueprints.todoapp.taskdetail.TaskDetailActivity;
+import com.example.android.architecture.blueprints.todoapp.taskdetail.TaskDetailController;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
  * Display a grid of {@link Task}s. User can choose to view all, active or completed tasks.
  */
-public class TasksFragment extends Fragment implements TasksContract.View {
+public class TasksController extends BaseController
+        implements TasksContract.View, ControllerResultHandler {
+
+    private static final String CURRENT_FILTERING_KEY = "CURRENT_FILTERING_KEY";
 
     private TasksContract.Presenter mPresenter;
+
+    private TasksFilterType mCurrentFiltering;
 
     private TasksAdapter mListAdapter;
 
@@ -70,41 +82,14 @@ public class TasksFragment extends Fragment implements TasksContract.View {
 
     private TextView mFilteringLabelView;
 
-    public TasksFragment() {
-        // Requires empty public constructor
-    }
+    private ControllerResult mControllerResult;
 
-    public static TasksFragment newInstance() {
-        return new TasksFragment();
-    }
-
+    @NonNull
     @Override
-    public void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected View onCreateView(@NonNull LayoutInflater inflater, @NonNull ViewGroup container) {
+        View root = inflater.inflate(R.layout.tasks_controller, container, false);
+
         mListAdapter = new TasksAdapter(new ArrayList<Task>(0), mItemListener);
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        mPresenter.start();
-    }
-
-    @Override
-    public void setPresenter(@NonNull TasksContract.Presenter presenter) {
-        mPresenter = checkNotNull(presenter);
-    }
-
-    @Override
-    public void onActivityResult(int requestCode, int resultCode, Intent data) {
-        mPresenter.result(requestCode, resultCode);
-    }
-
-    @Nullable
-    @Override
-    public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                             Bundle savedInstanceState) {
-        View root = inflater.inflate(R.layout.tasks_frag, container, false);
 
         // Set up tasks view
         ListView listView = (ListView) root.findViewById(R.id.tasks_list);
@@ -124,9 +109,16 @@ public class TasksFragment extends Fragment implements TasksContract.View {
             }
         });
 
+        Toolbar toolbar = (Toolbar) root.findViewById(R.id.toolbar);
+        setActionBar(toolbar);
+        ActionBar actionBar = getActionBar();
+        actionBar.setTitle(R.string.list_title);
+        actionBar.setHomeAsUpIndicator(R.drawable.ic_menu);
+        actionBar.setDisplayHomeAsUpEnabled(true);
+
         // Set up floating action button
         FloatingActionButton fab =
-                (FloatingActionButton) getActivity().findViewById(R.id.fab_add_task);
+                (FloatingActionButton) root.findViewById(R.id.fab_add_task);
 
         fab.setImageResource(R.drawable.ic_add);
         fab.setOnClickListener(new View.OnClickListener() {
@@ -156,33 +148,94 @@ public class TasksFragment extends Fragment implements TasksContract.View {
 
         setHasOptionsMenu(true);
 
+        setActive(true);
+
+        setupPresenter();
+
         return root;
+    }
+
+    @Override
+    public void onResult(ControllerResult result) {
+        /* Since this method will be called while this Controller is still on the back-stack and
+         not attached to the Activity view hierarchy, we should wait until the we are reattached
+         to process the result. */
+        mControllerResult = result;
+    }
+
+    private void setupPresenter() {
+        mPresenter = new TasksPresenter(
+                Injection.provideTasksRepository(getApplicationContext()), this);
+        if (mCurrentFiltering != null) {
+            mPresenter.setFiltering(mCurrentFiltering);
+        }
+    }
+
+    @Override
+    protected void onAttach(@NonNull View view) {
+        super.onAttach(view);
+        // Configure Activity level UI.
+        DrawerLayout drawerLayout = getDrawerLayout();
+        drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNDEFINED);
+
+        // Start Presenter
+        mPresenter.start();
+
+        // If we are returning from a previous Controller and have a result, process it.
+        if (mControllerResult != null) {
+            mPresenter.result(mControllerResult);
+            mControllerResult = null;
+        }
+    }
+
+    @Override
+    protected void onDetach(@NonNull View view) {
+        super.onDetach(view);
+        // The Controller is kept in a retained Fragment during configuration changes, just save the
+        // to a member variable.
+        mCurrentFiltering = mPresenter.getFiltering();
+    }
+
+    @Override
+    protected void onSaveInstanceState(@NonNull Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putSerializable(CURRENT_FILTERING_KEY, mPresenter.getFiltering());
+    }
+
+    @Override
+    protected void onRestoreInstanceState(@NonNull Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        mCurrentFiltering = (TasksFilterType) savedInstanceState.getSerializable(CURRENT_FILTERING_KEY);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case android.R.id.home:
+                // Open the navigation drawer when the home icon is selected from the toolbar.
+                getDrawerLayout().openDrawer(GravityCompat.START);
+                return true;
             case R.id.menu_clear:
                 mPresenter.clearCompletedTasks();
-                break;
+                return true;
             case R.id.menu_filter:
                 showFilteringPopUpMenu();
-                break;
+                return true;
             case R.id.menu_refresh:
                 mPresenter.loadTasks(true);
-                break;
+                return true;
         }
-        return true;
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        inflater.inflate(R.menu.tasks_fragment_menu, menu);
+        inflater.inflate(R.menu.tasks_controller_menu, menu);
     }
 
     @Override
     public void showFilteringPopUpMenu() {
-        PopupMenu popup = new PopupMenu(getContext(), getActivity().findViewById(R.id.menu_filter));
+        PopupMenu popup = new PopupMenu(getActivity(), getActivity().findViewById(R.id.menu_filter));
         popup.getMenuInflater().inflate(R.menu.filter_tasks, popup.getMenu());
 
         popup.setOnMenuItemClickListener(new PopupMenu.OnMenuItemClickListener() {
@@ -281,7 +334,7 @@ public class TasksFragment extends Fragment implements TasksContract.View {
 
     @Override
     public void showSuccessfullySavedMessage() {
-        showMessage(getString(R.string.successfully_saved_task_message));
+        showMessage(getResources().getString(R.string.successfully_saved_task_message));
     }
 
     private void showNoTasksViews(String mainText, int iconRes, boolean showAddView) {
@@ -310,46 +363,38 @@ public class TasksFragment extends Fragment implements TasksContract.View {
 
     @Override
     public void showAddTask() {
-        Intent intent = new Intent(getContext(), AddEditTaskActivity.class);
-        startActivityForResult(intent, AddEditTaskActivity.REQUEST_ADD_TASK);
+        AddEditTaskController addEditTaskController = new AddEditTaskController();
+        addEditTaskController.setTargetController(this);
+        getRouter().pushController(RouterTransaction.with(addEditTaskController));
     }
 
     @Override
     public void showTaskDetailsUi(String taskId) {
-        // in it's own Activity, since it makes more sense that way and it gives us the flexibility
-        // to show some Intent stubbing.
-        Intent intent = new Intent(getContext(), TaskDetailActivity.class);
-        intent.putExtra(TaskDetailActivity.EXTRA_TASK_ID, taskId);
-        startActivity(intent);
+        getRouter().pushController(RouterTransaction.with(new TaskDetailController(taskId)));
     }
 
     @Override
     public void showTaskMarkedComplete() {
-        showMessage(getString(R.string.task_marked_complete));
+        showMessage(getResources().getString(R.string.task_marked_complete));
     }
 
     @Override
     public void showTaskMarkedActive() {
-        showMessage(getString(R.string.task_marked_active));
+        showMessage(getResources().getString(R.string.task_marked_active));
     }
 
     @Override
     public void showCompletedTasksCleared() {
-        showMessage(getString(R.string.completed_tasks_cleared));
+        showMessage(getResources().getString(R.string.completed_tasks_cleared));
     }
 
     @Override
     public void showLoadingTasksError() {
-        showMessage(getString(R.string.loading_tasks_error));
+        showMessage(getResources().getString(R.string.loading_tasks_error));
     }
 
     private void showMessage(String message) {
-        Snackbar.make(getView(), message, Snackbar.LENGTH_LONG).show();
-    }
-
-    @Override
-    public boolean isActive() {
-        return isAdded();
+        Snackbar.make(mTasksView, message, Snackbar.LENGTH_LONG).show();
     }
 
     private static class TasksAdapter extends BaseAdapter {

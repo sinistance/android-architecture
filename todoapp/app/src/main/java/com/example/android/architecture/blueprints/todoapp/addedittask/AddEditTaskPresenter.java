@@ -16,16 +16,16 @@
 
 package com.example.android.architecture.blueprints.todoapp.addedittask;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
 import com.example.android.architecture.blueprints.todoapp.data.Task;
 import com.example.android.architecture.blueprints.todoapp.data.source.TasksDataSource;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
- * Listens to user actions from the UI ({@link AddEditTaskFragment}), retrieves the data and updates
+ * Listens to user actions from the UI ({@link AddEditTaskController}), retrieves the data and updates
  * the UI as required.
  */
 public class AddEditTaskPresenter implements AddEditTaskContract.Presenter,
@@ -40,29 +40,23 @@ public class AddEditTaskPresenter implements AddEditTaskContract.Presenter,
     @Nullable
     private String mTaskId;
 
-    private boolean mIsDataMissing;
-
     /**
      * Creates a presenter for the add/edit view.
      *
      * @param taskId ID of the task to edit or null for a new task
      * @param tasksRepository a repository of data for tasks
      * @param addTaskView the add/edit view
-     * @param shouldLoadDataFromRepo whether data needs to be loaded or not (for config changes)
      */
     public AddEditTaskPresenter(@Nullable String taskId, @NonNull TasksDataSource tasksRepository,
-            @NonNull AddEditTaskContract.View addTaskView, boolean shouldLoadDataFromRepo) {
+            @NonNull AddEditTaskContract.View addTaskView) {
         mTaskId = taskId;
         mTasksRepository = checkNotNull(tasksRepository);
         mAddTaskView = checkNotNull(addTaskView);
-        mIsDataMissing = shouldLoadDataFromRepo;
-
-        mAddTaskView.setPresenter(this);
     }
 
     @Override
     public void start() {
-        if (!isNewTask() && mIsDataMissing) {
+        if (!isNewTask()) {
             populateTask();
         }
     }
@@ -91,7 +85,6 @@ public class AddEditTaskPresenter implements AddEditTaskContract.Presenter,
             mAddTaskView.setTitle(task.getTitle());
             mAddTaskView.setDescription(task.getDescription());
         }
-        mIsDataMissing = false;
     }
 
     @Override
@@ -100,11 +93,6 @@ public class AddEditTaskPresenter implements AddEditTaskContract.Presenter,
         if (mAddTaskView.isActive()) {
             mAddTaskView.showEmptyTaskError();
         }
-    }
-
-    @Override
-    public boolean isDataMissing() {
-        return mIsDataMissing;
     }
 
     private boolean isNewTask() {

@@ -24,12 +24,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import static org.mockito.Matchers.eq;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -75,16 +73,6 @@ public class TaskDetailPresenterTest {
     }
 
     @Test
-    public void createPresenter_setsThePresenterToView() {
-        // Get a reference to the class under test
-        mTaskDetailPresenter = new TaskDetailPresenter(
-                ACTIVE_TASK.getId(), mTasksRepository, mTaskDetailView);
-
-        // Then the presenter is set to the view
-        verify(mTaskDetailView).setPresenter(mTaskDetailPresenter);
-    }
-
-    @Test
     public void getActiveTaskFromRepositoryAndLoadIntoView() {
         // When tasks presenter is asked to open a task
         mTaskDetailPresenter = new TaskDetailPresenter(
@@ -93,15 +81,14 @@ public class TaskDetailPresenterTest {
 
         // Then task is loaded from model, callback is captured and progress indicator is shown
         verify(mTasksRepository).getTask(eq(ACTIVE_TASK.getId()), mGetTaskCallbackCaptor.capture());
-        InOrder inOrder = inOrder(mTaskDetailView);
-        inOrder.verify(mTaskDetailView).setLoadingIndicator(true);
+        verify(mTaskDetailView).setLoadingIndicator(true);
 
         // When task is finally loaded
         mGetTaskCallbackCaptor.getValue().onTaskLoaded(ACTIVE_TASK); // Trigger callback
 
         // Then progress indicator is hidden and title, description and completion status are shown
         // in UI
-        inOrder.verify(mTaskDetailView).setLoadingIndicator(false);
+        verify(mTaskDetailView).setLoadingIndicator(false);
         verify(mTaskDetailView).showTitle(TITLE_TEST);
         verify(mTaskDetailView).showDescription(DESCRIPTION_TEST);
         verify(mTaskDetailView).showCompletionStatus(false);
@@ -116,15 +103,14 @@ public class TaskDetailPresenterTest {
         // Then task is loaded from model, callback is captured and progress indicator is shown
         verify(mTasksRepository).getTask(
                 eq(COMPLETED_TASK.getId()), mGetTaskCallbackCaptor.capture());
-        InOrder inOrder = inOrder(mTaskDetailView);
-        inOrder.verify(mTaskDetailView).setLoadingIndicator(true);
+        verify(mTaskDetailView).setLoadingIndicator(true);
 
         // When task is finally loaded
         mGetTaskCallbackCaptor.getValue().onTaskLoaded(COMPLETED_TASK); // Trigger callback
 
         // Then progress indicator is hidden and title, description and completion status are shown
         // in UI
-        inOrder.verify(mTaskDetailView).setLoadingIndicator(false);
+        verify(mTaskDetailView).setLoadingIndicator(false);
         verify(mTaskDetailView).showTitle(TITLE_TEST);
         verify(mTaskDetailView).showDescription(DESCRIPTION_TEST);
         verify(mTaskDetailView).showCompletionStatus(true);

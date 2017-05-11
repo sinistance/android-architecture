@@ -16,10 +16,11 @@
 
 package com.example.android.architecture.blueprints.todoapp.tasks;
 
-import android.app.Activity;
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import android.support.annotation.NonNull;
 
-import com.example.android.architecture.blueprints.todoapp.addedittask.AddEditTaskActivity;
+import com.example.android.architecture.blueprints.todoapp.controller.ControllerResult;
 import com.example.android.architecture.blueprints.todoapp.data.Task;
 import com.example.android.architecture.blueprints.todoapp.data.source.TasksDataSource;
 import com.example.android.architecture.blueprints.todoapp.data.source.TasksRepository;
@@ -28,10 +29,8 @@ import com.example.android.architecture.blueprints.todoapp.util.EspressoIdlingRe
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 /**
- * Listens to user actions from the UI ({@link TasksFragment}), retrieves the data and updates the
+ * Listens to user actions from the UI ({@link TasksController}), retrieves the data and updates the
  * UI as required.
  */
 public class TasksPresenter implements TasksContract.Presenter {
@@ -47,8 +46,6 @@ public class TasksPresenter implements TasksContract.Presenter {
     public TasksPresenter(@NonNull TasksRepository tasksRepository, @NonNull TasksContract.View tasksView) {
         mTasksRepository = checkNotNull(tasksRepository, "tasksRepository cannot be null");
         mTasksView = checkNotNull(tasksView, "tasksView cannot be null!");
-
-        mTasksView.setPresenter(this);
     }
 
     @Override
@@ -57,9 +54,9 @@ public class TasksPresenter implements TasksContract.Presenter {
     }
 
     @Override
-    public void result(int requestCode, int resultCode) {
+    public void result(ControllerResult result) {
         // If a task was successfully added, show snackbar
-        if (AddEditTaskActivity.REQUEST_ADD_TASK == requestCode && Activity.RESULT_OK == resultCode) {
+        if (result == ControllerResult.OK) {
             mTasksView.showSuccessfullySavedMessage();
         }
     }

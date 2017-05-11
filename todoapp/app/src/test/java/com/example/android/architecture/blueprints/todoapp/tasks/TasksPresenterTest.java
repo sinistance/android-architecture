@@ -25,7 +25,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
@@ -33,7 +32,6 @@ import java.util.List;
 
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -77,15 +75,6 @@ public class TasksPresenterTest {
     }
 
     @Test
-    public void createPresenter_setsThePresenterToView() {
-        // Get a reference to the class under test
-        mTasksPresenter = new TasksPresenter(mTasksRepository, mTasksView);
-
-        // Then the presenter is set to the view
-        verify(mTasksView).setPresenter(mTasksPresenter);
-    }
-
-    @Test
     public void loadAllTasksFromRepositoryAndLoadIntoView() {
         // Given an initialized TasksPresenter with initialized tasks
         // When loading of Tasks is requested
@@ -97,10 +86,9 @@ public class TasksPresenterTest {
         mLoadTasksCallbackCaptor.getValue().onTasksLoaded(TASKS);
 
         // Then progress indicator is shown
-        InOrder inOrder = inOrder(mTasksView);
-        inOrder.verify(mTasksView).setLoadingIndicator(true);
+        verify(mTasksView).setLoadingIndicator(true);
         // Then progress indicator is hidden and all tasks are shown in UI
-        inOrder.verify(mTasksView).setLoadingIndicator(false);
+        verify(mTasksView).setLoadingIndicator(false);
         ArgumentCaptor<List> showTasksArgumentCaptor = ArgumentCaptor.forClass(List.class);
         verify(mTasksView).showTasks(showTasksArgumentCaptor.capture());
         assertTrue(showTasksArgumentCaptor.getValue().size() == 3);
